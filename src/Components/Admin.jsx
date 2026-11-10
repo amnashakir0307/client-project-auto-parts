@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-// Password .env me rakho: VITE_ADMIN_PASSWORD=tumhara-password
-// Default: admin123
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+// Password sirf environment variable se aata hai — code me kabhi mat likho.
+ // Netlify: Site settings -> Environment variables -> VITE_ADMIN_PASSWORD
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 const RED = '#8b0b0b';
 
 // --- CLOUDINARY SETUP DETAILS ---
@@ -125,7 +125,7 @@ export default function Admin() {
   };
   useEffect(() => { if (loggedIn) loadAll(); }, [loggedIn]);
 
-  const login = (e) => { e.preventDefault(); if (pw === ADMIN_PASSWORD) setLoggedIn(true); else setMsg('Galat password'); };
+  const login = (e) => { e.preventDefault(); if (!ADMIN_PASSWORD) { setMsg('Admin password set nahi hai — Netlify environment variables me VITE_ADMIN_PASSWORD daalo.'); return; } if (pw === ADMIN_PASSWORD) setLoggedIn(true); else setMsg('Galat password'); };
   // Number fields: digits only (decimals allowed for prices). Letters are rejected.
   const onlyNum = (v, dec) => dec ? v.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1') : v.replace(/[^0-9]/g, '');
   const numField = (key, dec) => (e) => setForm({ ...form, [key]: onlyNum(e.target.value, dec) });
@@ -160,7 +160,7 @@ export default function Admin() {
     if (pwChange.current !== ADMIN_PASSWORD) { setPwChangeMsg('Current Password is wrong.'); return; }
     if (!pwChange.next || pwChange.next.length < 4) { setPwChangeMsg('New Password must be at least 4 characters.'); return; }
     if (pwChange.next !== pwChange.confirm) { setPwChangeMsg('New Password and Confirm New Password do not match.'); return; }
-    setPwChangeMsg('Password checked OK. This Vite site reads its password from .env — set VITE_ADMIN_PASSWORD=' + pwChange.next + ' in your .env file (do NOT share it in chat), then restart with npm run dev. The password in this browser session cannot be changed from the panel itself.');
+    setPwChangeMsg('Password checked OK. This site reads its password from the environment — set VITE_ADMIN_PASSWORD in Netlify environment variables (or your .env), then redeploy / restart. The password in this browser session cannot be changed from the panel itself.');
   };
   const changePassword = () => { alert('Password change karne ke liye .env me VITE_ADMIN_PASSWORD badlo, phir npm run dev restart karo.'); };
 
@@ -224,7 +224,6 @@ export default function Admin() {
             <button style={{ width: '100%', padding: 12, background: RED, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 800, cursor: 'pointer' }}>Login</button>
           </form>
           {msg && <p style={{ color: 'red' }}>{msg}</p>}
-          <p style={{ fontSize: 12, color: '#888' }}>Default password: admin123</p>
         </div>
       </div>
     );
