@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabaseClient';
 import {
   FaShoppingCart,
@@ -71,8 +72,29 @@ const discountOf = (p) => {
 };
 
 const Shop = () => {
+  const { t, i18n } = useTranslation();
+  const location = useLocation();
+  const isArabic = i18n.language === 'ar';
   const [search, setSearch] = useState('');
+  const [searchName, setSearchName] = useState('');
+  const [searchBM, setSearchBM] = useState('');
   const [selectedCats, setSelectedCats] = useState([]);
+  const [selectedBrands, setSelectedBrands] = useState([]);
+  const [priceRange, setPriceRange] = useState('all');
+  // Home se aaye to uske filters pehle se lagao: category (Shop by
+  // Category), ya Shop Preview sidebar se search / category / brand
+  useEffect(() => {
+    const st = location.state || {};
+    if (st.category) setSelectedCats([st.category]);
+    if (st.searchNum) setSearch(st.searchNum);
+    else if (st.search) setSearch(st.search);
+    if (st.searchName) setSearchName(st.searchName);
+    if (st.searchBM) setSearchBM(st.searchBM);
+    if (st.model) { setVehicleModel(st.model); setVehicleApplied((prev) => ({ year: (prev && prev.year) || '', brand: (prev && prev.brand) || st.brand || '', model: st.model })); }
+    if (st.priceMin !== undefined && st.priceMin !== null) { setPriceMin(Number(st.priceMin)); setMinInput(String(st.priceMin)); }
+    if (st.priceMax !== undefined && st.priceMax !== null) { setPriceMax(Number(st.priceMax)); setMaxInput(String(st.priceMax)); }
+    if (st.brand) { setVehicleBrand(st.brand); setVehicleApplied({ year: '', brand: st.brand, model: '' }); }
+  }, []);
   const [minInput, setMinInput] = useState('');
   const [maxInput, setMaxInput] = useState('');
   const [priceMin, setPriceMin] = useState(0);
@@ -177,6 +199,13 @@ const Shop = () => {
     return Object.keys(map).map((name) => ({ name, count: map[name] }));
   }, [products]);
 
+  const SHOP_BRANDS = ['Isuzu', 'Mitsubishi', 'Changan', 'MG', 'Hyundai'];
+  const brandCounts = useMemo(() => {
+    const map = {};
+    products.forEach((p) => { if (p.brand) map[p.brand] = (map[p.brand] || 0) + 1; });
+    return map;
+  }, [products]);
+
   const modelsForBrand = useMemo(() => {
     const list = products.filter((p) => !vehicleBrand || p.brand === vehicleBrand).map((p) => p.model);
     return [...new Set(list)];
@@ -189,6 +218,9 @@ const Shop = () => {
       // oem_number (all snake_case in Supabase), not just name/brand/model.
       if (q && !(normalize(p.name).includes(q) || normalize(partNo(p)).includes(q) || normalize(oemNo(p)).includes(q) || normalize(altNamesOf(p)).includes(q) || normalize(p.brand).includes(q) || normalize(p.model).includes(q) || normalize(yearOf(p)).includes(q))) return false;
       if (selectedCats.length > 0 && !selectedCats.includes(p.category)) return false;
+      if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) return false;
+      if (searchName.trim() && !(normalize(p.name).includes(normalize(searchName.trim())) || normalize(altNamesOf(p)).includes(normalize(searchName.trim())))) return false;
+      if (searchBM.trim() && !(normalize(p.brand).includes(normalize(searchBM.trim())) || normalize(p.model).includes(normalize(searchBM.trim())))) return false;
       if ((Number(p.price) || 0) < priceMin || (Number(p.price) || 0) > priceMax) return false;
       if (stockFilter === 'available' && p.stock <= 0) return false;
       // Year is kept for the WhatsApp order note only — sample products
@@ -202,12 +234,12 @@ const Shop = () => {
     if (sort === 'price-desc') list = [...list].sort((a, b) => b.price - a.price);
     if (sort === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
     return list;
-  }, [search, selectedCats, priceMin, priceMax, stockFilter, vehicleApplied, sort, products]);
+  }, [search, searchName, searchBM, selectedCats, selectedBrands, priceMin, priceMax, stockFilter, vehicleApplied, sort, products]);
 
   // Screenshot top bar: "Show: 12 / 24 / 48 Items" — only that many shown.
   const visible = useMemo(() => filtered.slice(0, pageSize), [filtered, pageSize]);
 
-  const filtersActive = search.trim() !== '' || selectedCats.length > 0 || priceMin !== 0 || priceMax !== priceCeil || stockFilter !== 'available' || vehicleApplied !== null;
+  const filtersActive = search.trim() !== '' || searchName.trim() !== '' || searchBM.trim() !== '' || selectedCats.length > 0 || selectedBrands.length > 0 || priceMin !== 0 || priceMax !== priceCeil || stockFilter !== 'available' || vehicleApplied !== null;
 
   // FIX 3 — explain an empty result instead of a bare "No products".
   // stockFilter='available' (default) hides stock-0 products and the
@@ -241,6 +273,21 @@ const Shop = () => {
     setSelectedCats((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]);
   };
 
+  const toggleBrand = (b) => {
+    setSelectedBrands((prev) => prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]);
+  };
+
+  // Price range quick options: SAR 100 se kam, 100-500, 500-1000, 1000 se zyada
+  const applyPriceRange = (r) => {
+    setPriceRange(r);
+    const ranges = { all: [0, priceCeil], under100: [0, 100], r100_500: [100, 500], r500_1000: [500, 1000], over1000: [1000, priceCeil] };
+    const [mn, mx] = ranges[r] || ranges.all;
+    setMinInput(mn === 0 ? '' : String(mn));
+    setMaxInput(mx === priceCeil ? '' : String(mx));
+    setPriceMin(mn);
+    setPriceMax(mx);
+  };
+
   const applyPrice = () => {
     const min = minInput === '' ? 0 : Number(minInput);
     const max = maxInput === '' ? priceCeil : Number(maxInput);
@@ -258,7 +305,7 @@ const Shop = () => {
   };
 
   const clearAll = () => {
-    setSearch(''); setSelectedCats([]); setMinInput(''); setMaxInput('');
+    setSearch(''); setSearchName(''); setSearchBM(''); setSelectedCats([]); setSelectedBrands([]); setPriceRange('all'); setMinInput(''); setMaxInput('');
     setPriceMin(0); setPriceMax(priceCeil); setStockFilter('available'); clearVehicle(); setSort('latest'); setPageSize(12);
   };
 
@@ -283,6 +330,31 @@ const Shop = () => {
     setDetail(null);
     setCartOpen(true);
   };
+  // Detail popup "Place Order": add the chosen qty to the cart, save the
+  // cart to localStorage SYNCHRONOUSLY (so /order-place reads the new item
+  // on mount), then go straight to /order-place where the customer chooses
+  // payment (COD / Bank Transfer) and places the order. Ordering is NOT on
+  // WhatsApp — WhatsApp below is only for asking detail about the part.
+  const buyNowDetail = () => {
+    if (!detail) return;
+    const qty = Math.max(1, detailQty);
+    const found = cart.find((i) => i.id === detail.id);
+    const newCart = found
+      ? cart.map((i) => i.id === detail.id ? { ...i, qty: i.qty + qty } : i)
+      : [...cart, { id: detail.id, qty }];
+    setCart(newCart);
+    try {
+      const snapshot = newCart.map((item) => {
+        const p = item.id === detail.id ? detail : products.find((x) => x.id === item.id);
+        return p
+          ? { id: item.id, qty: item.qty, name: p.name, part_number: partNo(p), brand: p.brand, model: p.model, price: Number(p.price) || 0, image: p.image || '' }
+          : { id: item.id, qty: item.qty };
+      });
+      localStorage.setItem('alsaqr_cart', JSON.stringify(snapshot));
+    } catch (e) {}
+    setDetail(null);
+    navigate('/order-place');
+  };
   // Detail popup WhatsApp: customer asks for more information, in English only.
   const detailWhatsApp = () => {
     if (!detail) return;
@@ -292,6 +364,11 @@ const Shop = () => {
 
   const changeQty = (id, delta) => {
     setCart((prev) => prev.map((i) => i.id === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i));
+  };
+  // FIX: cart "Show more" called toggleCartName but it was never defined,
+  // so clicking it crashed. Now it toggles the expanded name.
+  const toggleCartName = (id) => {
+    setExpandedCartNames((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const removeFromCart = (id) => setCart((prev) => prev.filter((i) => i.id !== id));
@@ -305,7 +382,7 @@ const Shop = () => {
   // popup, for asking detail about a part.
 
   return (
-    <div className="shop-page">
+    <div className="shop-page" dir={isArabic ? 'rtl' : 'ltr'}>
       <style>{`
         .shop-page { background: #fff; color: #111; font-family: 'Segoe UI', Tahoma, sans-serif; padding: 30px 5% 60px; box-sizing: border-box; }
         .shop-top h2 { margin: 0 0 6px; font-size: 28px; font-weight: 900; text-transform: uppercase; }
@@ -372,9 +449,9 @@ const Shop = () => {
            is long); the modal box itself has NO overflow / NO max-height
            scroller. Content is a 2-column grid (photo left, details
            right) so it fits on screen. */
-        .shop-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99999; display: flex; align-items: flex-start; justify-content: center; padding: 70px 16px 20px; box-sizing: border-box; overflow-y: auto; }
-        .shop-detail-modal { background: #fff; width: min(900px, 94vw); max-width: 94vw; height: min(560px, calc(100vh - 140px)); border-radius: 12px; padding: 0 20px 20px; box-sizing: border-box; margin: 0 auto; position: relative; text-align: left; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
-        .shop-detail-closebar { position: sticky; top: 0; z-index: 10; display: flex; justify-content: flex-end; background: #fff; padding: 12px 20px 4px; margin: 0 -20px; flex-shrink: 0; }
+        .shop-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99999; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px 20px; box-sizing: border-box; overflow-y: auto; }
+        .shop-detail-modal { background-image: linear-gradient(rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.98)), url("/faq.jpg"); background-size: cover; background-position: center; width: min(900px, 94vw); max-width: 94vw; height: auto; border-radius: 12px; padding: 12px 20px 16px; box-sizing: border-box; margin: 0 auto; position: relative; text-align: left; flex-shrink: 0; display: flex; flex-direction: column; }
+        .shop-detail-closebar { display: flex; justify-content: flex-end; background: rgba(255,255,255,0.97); padding: 0 0 8px; flex-shrink: 0; }
         .shop-detail-body { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; flex: 1; min-height: 0; align-items: stretch; }
         .shop-detail-left { display: flex; flex-direction: column; min-height: 0; }
         .shop-detail-close { position: sticky; top: 12px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #e5e7eb; background: #fff; color: #111; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 11; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
@@ -386,33 +463,40 @@ const Shop = () => {
         .shop-detail-thumbs img { width: 64px; height: 64px; object-fit: contain; border: 2px solid #e5e7eb; border-radius: 8px; padding: 4px; box-sizing: border-box; cursor: pointer; background: #fff; }
         .shop-detail-thumbs img.active { border-color: #8b0b0b; }
         .shop-detail-info { display: flex; flex-direction: column; min-height: 0; }
-        .shop-detail-info h2 { margin: 0 0 6px; font-size: 22px; line-height: 1.3; }
+        .shop-detail-info h2 { margin: 0 0 4px; font-size: 20px; line-height: 1.3; }
         .shop-detail-alt { font-size: 13px; color: #666; margin: 0 0 8px; }
         .shop-detail-stars { color: #f59e0b; font-size: 15px; margin: 0 0 10px; letter-spacing: 2px; }
-        .shop-detail-specs { font-size: 13px; color: #333; margin: 0 0 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+        .shop-detail-specs { font-size: 13px; color: #333; margin: 0 0 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
         .shop-detail-specs b { color: #666; font-weight: 600; }
-        .shop-detail-stock { font-size: 13px; font-weight: 700; color: #16a34a; margin: 0 0 10px; }
+        .shop-detail-stock { font-size: 13px; font-weight: 700; color: #16a34a; margin: 0 0 6px; }
         .shop-detail-stock.out { color: #dc2626; }
         /* FIXED description slot: exactly 72px (3 lines) whether the
            description is 1 line, 5 lines, or empty — longer text is
            clamped to 3 lines so it can never push the buttons down. */
-        .shop-detail-desc { font-size: 14px; color: #444; line-height: 1.6; margin: 0 0 14px; height: 72px; min-height: 72px; max-height: 72px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; flex-shrink: 0; }
-        .shop-detail-price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 0 16px; flex-shrink: 0; }
+        .shop-detail-desc { font-size: 14px; color: #444; line-height: 1.6; margin: 0 0 10px; height: 44px; min-height: 44px; max-height: 44px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; flex-shrink: 0; }
+        .shop-detail-price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; flex-shrink: 0; }
         /* Buttons pinned at the bottom of the fixed-height popup:
            margin-top auto absorbs any slack, so they sit at the exact
            same vertical position for every product. */
         .shop-detail-actions { margin-top: auto; flex-shrink: 0; }
-        .shop-detail-price b { font-size: 26px; color: #111; }
+        .shop-detail-price b { font-size: 24px; color: #111; }
         .shop-detail-price .old { font-size: 16px; color: #999; text-decoration: line-through; }
         .shop-detail-price .off { background: #16a34a; color: #fff; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
-        .shop-detail-buy { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+        .shop-detail-buy { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
         .shop-detail-qty { display: flex; align-items: center; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
-        .shop-detail-qty button { width: 38px; height: 42px; border: none; background: #fff; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .shop-detail-qty button { width: 38px; height: 40px; border: none; background: #fff; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .shop-detail-qty span { min-width: 36px; text-align: center; font-weight: 800; }
-        .shop-detail-add { flex: 1; min-width: 180px; background: #8b0b0b; color: #fff; border: 2px solid #8b0b0b; padding: 12px 18px; border-radius: 8px; font-weight: 800; cursor: pointer; font-size: 14px; text-transform: uppercase; }
+        .shop-detail-add { flex: 1; min-width: 180px; background: #8b0b0b; color: #fff; border: 2px solid #8b0b0b; padding: 11px 18px; border-radius: 8px; font-weight: 800; cursor: pointer; font-size: 14px; text-transform: uppercase; }
         .shop-detail-add:hover { background: #fff; color: #8b0b0b; }
         .shop-detail-add:disabled { background: #ccc; border-color: #ccc; color: #666; cursor: not-allowed; }
-        .shop-detail-wa { width: 100%; background: #25D366; color: #fff; border: none; padding: 13px; border-radius: 10px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-transform: uppercase; font-size: 14px; }
+        .shop-detail-wa { flex: 1; background: #25D366; color: #fff; border: none; padding: 12px 8px; border-radius: 10px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-transform: uppercase; font-size: 13px; white-space: nowrap; }
+        .shop-detail-place { width: 100%; background: #000; color: #fff; border: 2px solid #000; padding: 12px 18px; border-radius: 10px; font-weight: 900; cursor: pointer; font-size: 14px; text-transform: uppercase; margin-bottom: 4px; }
+        .shop-detail-place:hover { background: #8b0b0b; border-color: #8b0b0b; }
+        .shop-detail-place:disabled { background: #ccc; border-color: #ccc; color: #666; cursor: not-allowed; }
+        .shop-detail-paynote { font-size: 11px; color: #666; text-align: center; margin: 0 0 8px; }
+        .shop-detail-row2 { display: flex; gap: 8px; }
+        .shop-detail-continue { flex: 1; background: #fff; color: #111; border: 2px solid #e5e7eb; padding: 12px 8px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; text-transform: uppercase; white-space: nowrap; }
+        .shop-detail-continue:hover { border-color: #8b0b0b; color: #8b0b0b; }
         .shop-cart-fab { position: fixed; right: 20px; bottom: 20px; z-index: 1000; background: #8b0b0b; color: #fff; border: none; border-radius: 50px; padding: 14px 20px; font-weight: 800; cursor: pointer; display: flex; gap: 8px; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.25); }
         /* Cart Drawer — CORRECTION: its top was also hidden behind the
            site navbar, like the detail popup. Overlay sits ABOVE the
@@ -467,55 +551,81 @@ const Shop = () => {
           .shop-drawer { width: 100vw; max-width: 100vw; margin-top: 0; height: 100vh; height: 100dvh; }
         }
         @media (max-width: 560px) { .shop-grid { grid-template-columns: 1fr; } .shop-vehicle select { min-width: 0; width: 100%; } .shop-grid.list .shop-card { flex-direction: column; } .shop-grid.list .shop-card-photo { width: 100%; min-width: 0; } }
+        /* --- RTL (Arabic) fixes: LTR-hardcoded alignments flipped --- */
+        .shop-page[dir="rtl"] .shop-top { text-align: right; }
+        .shop-page[dir="rtl"] .shop-search { text-align: right; }
+        .shop-page[dir="rtl"] .shop-search-note { text-align: right; }
+        .shop-page[dir="rtl"] .shop-card-name { text-align: right; }
+        .shop-page[dir="rtl"] .shop-card-meta { text-align: right; }
+        .shop-page[dir="rtl"] .shop-detail-modal { text-align: right; }
+        .shop-page[dir="rtl"] .shop-detail-info { text-align: right; }
+        .shop-page[dir="rtl"] .shop-detail-specs { text-align: right; }
+        .shop-page[dir="rtl"] .shop-help { text-align: right; }
+        .shop-page[dir="rtl"] .shop-check input { margin-right: 0; margin-left: 8px; }
+        .shop-page[dir="rtl"] .shop-grid.list .shop-card-photo { border-right: none; border-left: 1px solid #e5e5e5; }
+        .shop-page[dir="rtl"] .shop-detail-closebar { justify-content: flex-start; }
+        .shop-page[dir="rtl"] .shop-cart-fab { right: auto; left: 20px; }
+        .shop-page[dir="rtl"] .shop-drawer-overlay { justify-content: flex-start; }
       `}</style>
 
       <div className="shop-top">
-        <h2>Shop Spare Parts</h2>
-        <p>Genuine parts for Isuzu, Mitsubishi, Changan and MG — Makkah, Saudi Arabia</p>
+        <h2>{t('shopTitle', 'Shop Spare Parts')}</h2>
+        <p>{t('shopSubtitle', 'Genuine parts for Isuzu, Mitsubishi, Changan and MG — Makkah, Saudi Arabia')}</p>
         <input
           className="shop-search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Part number, OEM number or vehicle"
+          placeholder={t('shopSearchPlaceholder', 'Part number, OEM number or vehicle')}
         />
-        <div className="shop-search-note">Search by part number, OEM or cross-reference number, part name, brand or vehicle. Dashes and spaces are ignored.</div>
+        <div className="shop-search-note">{t('shopSearchNote', 'Search by part number, OEM or cross-reference number, part name, brand or vehicle. Dashes and spaces are ignored.')}</div>
       </div>
 
       <div className="shop-vehicle">
-        <h3>Select Your Vehicle</h3>
+        <h3>{t('shopSelectVehicle', 'Select Your Vehicle')}</h3>
         <div>
-          <label>Year</label>
+          <label>{t('shopYear', 'Year')}</label>
           <select value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)}>
-            <option value="">Year</option>
+            <option value="">{t('shopYear', 'Year')}</option>
             {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <div>
-          <label>Make</label>
+          <label>{t('shopMake', 'Make')}</label>
           <select value={vehicleBrand} onChange={(e) => { setVehicleBrand(e.target.value); setVehicleModel(''); }}>
-            <option value="">Make</option>
+            <option value="">{t('shopMake', 'Make')}</option>
             {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
           </select>
         </div>
         <div>
-          <label>Model</label>
+          <label>{t('shopModel', 'Model')}</label>
           <select value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)}>
-            <option value="">Model</option>
+            <option value="">{t('shopModel', 'Model')}</option>
             {modelsForBrand.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
-        <button className="shop-btn-red" onClick={applyVehicle}>GO</button>
+        <button className="shop-btn-red" onClick={applyVehicle}>{t('shopGo', 'GO')}</button>
         <button className="shop-btn-ghost" onClick={clearVehicle} title="Reset vehicle"><FaRedo /></button>
         {vehicleApplied && (
           <div className="shop-applied">
-            Showing for: {vehicleApplied.year || ''} {vehicleApplied.brand || ''} {vehicleApplied.model || ''} — Year is only added to the order note, filtering is by Brand/Model.
+            {t('shopShowingFor', 'Showing for:')} {vehicleApplied.year || ''} {vehicleApplied.brand || ''} {vehicleApplied.model || ''} — {t('shopShowingForNote', 'Year is only added to the order note, filtering is by Brand/Model.')}
           </div>
         )}
       </div>
 
+      {/* Brand names — Shop se upar: click karo to us brand ke parts dikhenge */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '20px' }}>
+        <span style={{ fontSize: '13px', fontWeight: '800', color: '#111' }}>Shop by Brand:</span>
+        <button onClick={() => setSelectedBrands([])} style={{ padding: '8px 16px', borderRadius: '20px', border: selectedBrands.length === 0 ? '2px solid #8b0b0b' : '2px solid #e5e7eb', background: selectedBrands.length === 0 ? '#8b0b0b' : '#fff', color: selectedBrands.length === 0 ? '#fff' : '#111', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>All Brands</button>
+        {SHOP_BRANDS.map((b) => (
+          <button key={b} onClick={() => setSelectedBrands((prev) => prev.includes(b) && prev.length === 1 ? [] : [b])} style={{ padding: '8px 16px', borderRadius: '20px', border: selectedBrands.includes(b) ? '2px solid #8b0b0b' : '2px solid #e5e7eb', background: selectedBrands.includes(b) ? '#8b0b0b' : '#fff', color: selectedBrands.includes(b) ? '#fff' : '#111', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
+            {b} ({brandCounts[b] || 0})
+          </button>
+        ))}
+      </div>
+
       <div className="shop-layout">
         <aside className={mobileFilters ? 'shop-sidebar open' : 'shop-sidebar'}>
-          <h4>Collections</h4>
+          <h4>{t('shopCollections', 'Collections')}</h4>
           {categories.map((c) => (
             <label key={c.name} className="shop-check">
               <span><input type="checkbox" checked={selectedCats.includes(c.name)} onChange={() => toggleCat(c.name)} />{c.name}</span>
@@ -523,52 +633,81 @@ const Shop = () => {
             </label>
           ))}
 
-          <h4>Price</h4>
-          <div>SAR {priceMin} to SAR {priceMax}</div>
-          <input type="range" min="0" max={priceCeil} step="10" value={maxInput === '' ? priceCeil : Number(maxInput)} onChange={(e) => setMaxInput(e.target.value)} style={{ width: '100%' }} />
-          <div className="shop-price-row">
-            <input type="number" placeholder="Min" value={minInput} onChange={(e) => setMinInput(e.target.value)} />
-            <span>—</span>
-            <input type="number" placeholder="Max" value={maxInput} onChange={(e) => setMaxInput(e.target.value)} />
-            <button className="shop-btn-red" onClick={applyPrice}>GO</button>
+          <h4>Brands</h4>
+          {SHOP_BRANDS.map((b) => (
+            <label key={b} className="shop-check">
+              <span><input type="checkbox" checked={selectedBrands.includes(b)} onChange={() => toggleBrand(b)} />{b}</span>
+              <span>{brandCounts[b] || 0}</span>
+            </label>
+          ))}
+
+          <h4>{t('shopPrice', 'Price')}</h4>
+          <div style={{ fontSize: '13px', fontWeight: '800', color: '#111', marginBottom: '10px' }}>SAR {priceMin} <span style={{ color: '#999', fontWeight: '400' }}>to</span> SAR {priceMax}</div>
+          <input type="range" min="0" max={priceCeil} step="10" value={maxInput === '' ? priceCeil : Number(maxInput)} onChange={(e) => setMaxInput(e.target.value)} style={{ width: '100%', accentColor: '#8b0b0b' }} />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px' }}>
+            <label style={{ flex: 1, display: 'flex', alignItems: 'center', border: '2px solid #e5e7eb', borderRadius: '8px', padding: '0 8px', background: '#fff' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#888' }}>SAR</span>
+              <input type="number" placeholder="Min" value={minInput} onChange={(e) => setMinInput(e.target.value)} style={{ border: 'none', outline: 'none', width: '100%', padding: '10px 6px', fontSize: '13px' }} />
+            </label>
+            <span style={{ color: '#999' }}>—</span>
+            <label style={{ flex: 1, display: 'flex', alignItems: 'center', border: '2px solid #e5e7eb', borderRadius: '8px', padding: '0 8px', background: '#fff' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#888' }}>SAR</span>
+              <input type="number" placeholder="Max" value={maxInput} onChange={(e) => setMaxInput(e.target.value)} style={{ border: 'none', outline: 'none', width: '100%', padding: '10px 6px', fontSize: '13px' }} />
+            </label>
+            <button className="shop-btn-red" onClick={applyPrice} style={{ padding: '10px 14px' }}>APPLY</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
+            {[
+              { v: 'all', label: 'All Prices' },
+              { v: 'under100', label: 'Under 100' },
+              { v: 'r100_500', label: '100 – 500' },
+              { v: 'r500_1000', label: '500 – 1000' },
+              { v: 'over1000', label: '1000+' },
+            ].map((r) => (
+              <button key={r.v} onClick={() => applyPriceRange(r.v)} style={{ padding: '8px 6px', borderRadius: '20px', border: priceRange === r.v ? '2px solid #8b0b0b' : '1px solid #e5e7eb', background: priceRange === r.v ? '#8b0b0b' : '#fff', color: priceRange === r.v ? '#fff' : '#333', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}>
+                {r.v === 'all' ? r.label : `SAR ${r.label}`}
+              </button>
+            ))}
           </div>
 
-          <h4>Stock</h4>
+          <h4>{t('shopStock', 'Stock')}</h4>
           <label className="shop-check">
-            <span><input type="radio" name="stock" checked={stockFilter === 'available'} onChange={() => setStockFilter('available')} />Available</span>
+            <span><input type="radio" name="stock" checked={stockFilter === 'available'} onChange={() => setStockFilter('available')} />{t('shopAvailable', 'Available')}</span>
             <span>{products.filter((p) => p.stock > 0).length}</span>
           </label>
           <label className="shop-check">
-            <span><input type="radio" name="stock" checked={stockFilter === 'all'} onChange={() => setStockFilter('all')} />All</span>
+            <span><input type="radio" name="stock" checked={stockFilter === 'all'} onChange={() => setStockFilter('all')} />{t('shopAll', 'All')}</span>
             <span>{products.length}</span>
           </label>
 
-          <button className="shop-btn-ghost" style={{ marginTop: '18px', width: '100%' }} onClick={clearAll}>Clear all filters</button>
+          <button className="shop-btn-ghost" style={{ marginTop: '18px', width: '100%' }} onClick={clearAll}>{t('shopClearAll', 'Clear all filters')}</button>
         </aside>
 
         <main className="shop-main">
           <button className="shop-btn-ghost shop-filters-btn" onClick={() => setMobileFilters(!mobileFilters)}>
-            <FaFilter /> Filters
+            <FaFilter /> {t('shopFilters', 'Filters')}
           </button>
 
           <div className="shop-toolbar">
-            <span className="shop-toolbar-left">Showing all {filtered.length} results</span>
+            <span className="shop-toolbar-left">{t('shopShowingAll', 'Showing all')} {filtered.length} {t('shopResults', 'results')}</span>
             <span className="shop-toolbar-right">
-              {filtersActive && <button className="shop-clear-btn" onClick={clearAll}>× Clear filters</button>}
-              <label>Sort:
+              {searchName.trim() !== '' && <button className="shop-clear-btn" onClick={() => setSearchName('')} title="Clear name search">Name: “{searchName.trim()}” ×</button>}
+              {searchBM.trim() !== '' && <button className="shop-clear-btn" onClick={() => setSearchBM('')} title="Clear brand/model search">Brand/Model: “{searchBM.trim()}” ×</button>}
+              {filtersActive && <button className="shop-clear-btn" onClick={clearAll}>× {t('shopClearFilters', 'Clear filters')}</button>}
+              <label>{t('shopSort', 'Sort')}
                 <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                  <option value="latest">Sort by latest</option>
-                  <option value="best">Best Match</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="name">Name A–Z</option>
+                  <option value="latest">{t('shopSortLatest', 'Sort by latest')}</option>
+                  <option value="best">{t('shopSortBest', 'Best Match')}</option>
+                  <option value="price-asc">{t('shopSortPriceAsc', 'Price: Low to High')}</option>
+                  <option value="price-desc">{t('shopSortPriceDesc', 'Price: High to Low')}</option>
+                  <option value="name">{t('shopSortName', 'Name A–Z')}</option>
                 </select>
               </label>
-              <label>Show:
+              <label>{t('shopShow', 'Show')}
                 <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-                  <option value={12}>12 Items</option>
-                  <option value={24}>24 Items</option>
-                  <option value={48}>48 Items</option>
+                  <option value={12}>12 {t('shopItems', 'Items')}</option>
+                  <option value={24}>24 {t('shopItems', 'Items')}</option>
+                  <option value={48}>48 {t('shopItems', 'Items')}</option>
                 </select>
               </label>
               <span className="shop-view-toggle">
@@ -580,19 +719,19 @@ const Shop = () => {
 
           <div className="shop-help">
             <div>
-              <strong>Need help?</strong>
-              <p>Our team is ready to help! Reach out anytime — we are here to make your shopping experience truly easy.</p>
+              <strong>{t('shopNeedHelp', 'Need help?')}</strong>
+              <p>{t('shopNeedHelpText', 'Our team is ready to help! Reach out anytime — we are here to make your shopping experience truly easy.')}</p>
             </div>
-            <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer" className="shop-btn-red" style={{ textDecoration: 'none' }}>Get in touch</a>
+            <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer" className="shop-btn-red" style={{ textDecoration: 'none' }}>{t('shopGetInTouch', 'Get in touch')}</a>
           </div>
 
           {loading ? (
-            <div className="shop-empty"><p>Loading products...</p></div>
+            <div className="shop-empty"><p>{t('shopLoading', 'Loading products...')}</p></div>
           ) : filtered.length === 0 ? (
             <div className="shop-empty">
-              <p>No products match your filters.</p>
+              <p>{t('shopNoMatch', 'No products match your filters.')}</p>
               {products.length === 0 ? (
-                <p>No products are saved in Supabase yet — add one in Admin and it will appear here.</p>
+                <p>{t('shopNoProductsSupabase', 'No products are saved in Supabase yet — add one in Admin and it will appear here.')}</p>
               ) : (
                 <p style={{ fontSize: 13 }}>
                   {products.length} product(s) loaded.
@@ -601,7 +740,7 @@ const Shop = () => {
                   {search.trim() ? ` Search "${search.trim()}" matched nothing — try a part number, OEM number or alternate name.` : ''}
                 </p>
               )}
-              <button className="shop-btn-red" onClick={clearAll}>Clear filters</button>
+              <button className="shop-btn-red" onClick={clearAll}>{t('shopClearFilters', 'Clear filters')}</button>
             </div>
           ) : (
             <>
@@ -619,16 +758,16 @@ const Shop = () => {
                     </div>
                     <div className="shop-card-info">
                       <h3 className="shop-card-name">{p.name}</h3>
-                      <div className="shop-card-meta">{p.brand}{p.model ? ` ${p.model}` : ''}{partNo(p) ? ` • ${partNo(p)}` : ''} • {p.stock > 0 ? `In stock (${p.stock})` : 'Out of stock'}</div>
+                      <div className="shop-card-meta">{p.brand}{p.model ? ` ${p.model}` : ''}{partNo(p) ? ` • ${partNo(p)}` : ''} • {p.stock > 0 ? `${t('shopInStock', 'In stock')} (${p.stock})` : t('shopOutOfStock', 'Out of stock')}</div>
                       <div className="shop-card-bottom">
                         <span className="shop-card-price">SAR {p.price}</span>
                         {inCart ? (
                           <button className="shop-add-btn" onClick={(e) => { e.stopPropagation(); setCartOpen(true); }}>
-                            In Cart ({inCart.qty})
+                            {t('shopInCart', 'In Cart')} ({inCart.qty})
                           </button>
                         ) : (
                           <button className="shop-add-btn" onClick={(e) => { e.stopPropagation(); addToCart(p.id); }} disabled={p.stock <= 0}>
-                            Add to cart
+                            {t('shopAddToCart', 'Add to cart')}
                           </button>
                         )}
                       </div>
@@ -676,20 +815,20 @@ const Shop = () => {
               </div>
               <div className="shop-detail-info">
                 <h2>{detail.name}</h2>
-                {altNames.length > 0 && <p className="shop-detail-alt">Also known as: {altNames.join(', ')}</p>}
+                {altNames.length > 0 && <p className="shop-detail-alt">{t('shopAlsoKnownAs', 'Also known as:')} {altNames.join(', ')}</p>}
                 {rating > 0 && <p className="shop-detail-stars">{'★'.repeat(Math.round(rating))}{'☆'.repeat(Math.max(0, 5 - Math.round(rating)))} {rating} / 5</p>}
                 <div className="shop-detail-specs">
-                  <div><b>Part Number:</b> {partNo(detail) || '-'}</div>
-                  <div><b>OEM Number:</b> {oemNo(detail) || '-'}</div>
-                  <div><b>Brand:</b> {detail.brand || '-'}</div>
-                  <div><b>Model:</b> {detail.model || '-'}</div>
-                  <div><b>Year:</b> {yearOf(detail) || '-'}</div>
-                  <div><b>VIN / Chassis:</b> {detail.vin || '-'}</div>
-                  <div><b>Category:</b> {detail.category || '-'}</div>
-                  <div><b>Quality:</b> {detail.quality || '-'}</div>
+                  <div><b>{t('shopPartNumber', 'Part Number:')}</b> {partNo(detail) || '-'}</div>
+                  <div><b>{t('shopOemNumber', 'OEM Number:')}</b> {oemNo(detail) || '-'}</div>
+                  <div><b>{t('shopBrand', 'Brand:')}</b> {detail.brand || '-'}</div>
+                  <div><b>{t('shopModelLabel', 'Model:')}</b> {detail.model || '-'}</div>
+                  <div><b>{t('shopYearLabel', 'Year:')}</b> {yearOf(detail) || '-'}</div>
+                  <div><b>{t('shopVin', 'VIN / Chassis:')}</b> {detail.vin || '-'}</div>
+                  <div><b>{t('shopCategory', 'Category:')}</b> {detail.category || '-'}</div>
+                  <div><b>{t('shopQuality', 'Quality:')}</b> {detail.quality || '-'}</div>
                 </div>
                 <p className={detail.stock > 0 ? 'shop-detail-stock' : 'shop-detail-stock out'}>
-                  {detail.stock > 0 ? `In stock (${detail.stock})` : 'Out of stock'}
+                  {detail.stock > 0 ? `${t('shopInStock', 'In stock')} (${detail.stock})` : t('shopOutOfStock', 'Out of stock')}
                 </p>
                 <p className="shop-detail-desc">{detail.description || ''}</p>
                 <div className="shop-detail-price">
@@ -705,12 +844,21 @@ const Shop = () => {
                     <button type="button" onClick={() => setDetailQty((q) => Math.min(Number(detail.stock) || 99, q + 1))} aria-label="Increase quantity"><FaPlus /></button>
                   </div>
                   <button className="shop-detail-add" onClick={addDetailToCart} disabled={detail.stock <= 0}>
-                    {detail.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+                    {detail.stock > 0 ? t('shopAddToCartCap', 'Add to Cart') : t('shopOutOfStock', 'Out of stock')}
                   </button>
                 </div>
-                <button className="shop-detail-wa" onClick={detailWhatsApp}>
-                  <FaWhatsapp size={20} /> Ask on WhatsApp
+                <button className="shop-detail-place" onClick={buyNowDetail} disabled={detail.stock <= 0}>
+                  {t('shopPlaceOrderPayment', 'Place Order — Payment')}
                 </button>
+                <p className="shop-detail-paynote">{t('shopPayNote', 'Payment: COD or Bank Transfer — choose on the next page')}</p>
+                <div className="shop-detail-row2">
+                  <button className="shop-detail-wa" onClick={detailWhatsApp}>
+                    <FaWhatsapp size={20} /> {t('shopAskWhatsApp', 'Ask on WhatsApp')}
+                  </button>
+                  <button className="shop-detail-continue" onClick={closeDetail}>
+                    {t('shopContinueShopping', 'Continue Shopping')}
+                  </button>
+                </div>
                 </div>
               </div>
               </div>
@@ -720,20 +868,20 @@ const Shop = () => {
       })()}
 
       <button className="shop-cart-fab" onClick={() => { setCartOpen(true); }}>
-        <FaShoppingCart /> Cart ({cartCount}) — SAR {cartTotal}
+        <FaShoppingCart /> {t('shopCart', 'Cart')} ({cartCount}) — SAR {cartTotal}
       </button>
 
       {cartOpen && (
         <div className="shop-drawer-overlay" onClick={closeCart}>
           <div className="shop-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="shop-drawer-header">
-              <h3>Your Cart</h3>
+              <h3>{t('shopYourCart', 'Your Cart')}</h3>
               <button className="shop-btn-ghost" onClick={closeCart}><FaTimes /></button>
             </div>
             <>
                 <div className="shop-drawer-body">
                   {cart.length === 0 ? (
-                    <p>Cart is empty. Add a part to get started.</p>
+                    <p>{t('shopCartEmpty', 'Cart is empty. Add a part to get started.')}</p>
                   ) : (
                     <>
                       {cart.map((item) => {
@@ -745,7 +893,7 @@ const Shop = () => {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div className={expanded ? 'shop-cart-name expanded' : 'shop-cart-name'}>{p.name}</div>
                               <button type="button" className="shop-cart-more" onClick={() => toggleCartName(item.id)}>
-                                {expanded ? 'Show less' : 'Show more'}
+                                {expanded ? t('shopShowLess', 'Show less') : t('shopShowMore', 'Show more')}
                               </button>
                               <br />
                               <small>{partNo(p)} • {p.brand} {p.model}{yearOf(p) ? ` ${yearOf(p)}` : ''}</small>
@@ -766,16 +914,16 @@ const Shop = () => {
                 <div className="shop-drawer-footer">
                   {cart.length > 0 && (
                     <>
-                      <div className="shop-drawer-total"><span>Total</span><span>SAR {cartTotal}</span></div>
+                      <div className="shop-drawer-total"><span>{t('shopTotal', 'Total')}</span><span>SAR {cartTotal}</span></div>
                       <div className="shop-checkout-btns">
-                        <button className="shop-btn-ghost" onClick={closeCart}>Continue Shopping</button>
-                        <button className="shop-place-btn" onClick={goToOrderPlace}>Place Order</button>
+                        <button className="shop-btn-ghost" onClick={closeCart}>{t('shopContinueShopping', 'Continue Shopping')}</button>
+                        <button className="shop-place-btn" onClick={goToOrderPlace}>{t('shopPlaceOrder', 'Place Order')}</button>
                       </div>
-                      <p style={{ fontSize: '12px', color: '#666', textAlign: 'center', margin: '10px 0 0' }}>Place your order — pay in cash on delivery or by bank transfer.</p>
+                      <p style={{ fontSize: '12px', color: '#666', textAlign: 'center', margin: '10px 0 0' }}>{t('shopPlaceOrderNote', 'Place your order — pay in cash on delivery or by bank transfer.')}</p>
                     </>
                   )}
                   {cart.length === 0 && (
-                    <button className="shop-btn-ghost" style={{ width: '100%' }} onClick={closeCart}>Continue Shopping</button>
+                    <button className="shop-btn-ghost" style={{ width: '100%' }} onClick={closeCart}>{t('shopContinueShopping', 'Continue Shopping')}</button>
                   )}
                 </div>
               </>

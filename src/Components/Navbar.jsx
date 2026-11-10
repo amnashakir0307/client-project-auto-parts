@@ -6,6 +6,7 @@ import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa';
 const Navbar = () => {
   const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  const [brandsOpen, setBrandsOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('/home');
   const navigate = useNavigate();
 
@@ -26,6 +27,14 @@ const Navbar = () => {
         scrollToSection('why-us');
       }
     }
+  };
+
+  const NAV_BRANDS = ['Isuzu', 'Mitsubishi', 'Changan', 'MG', 'Hyundai'];
+  const goBrand = (b) => {
+    setIsOpen(false);
+    setBrandsOpen(false);
+    setActiveSection('/shop');
+    navigate('/shop', { state: { brand: b } });
   };
 
   const isArabic = i18n.language === 'ar';
@@ -250,7 +259,8 @@ const Navbar = () => {
               { name: t('home'), path: '/home' },
               { name: 'SHOP', path: '/shop' },
               { name: t('about'), path: '/about-us' },
-              { name: t('whyUs'), target: 'why-us' },
+              { name: t('whyUs'), path: '/why-us' },
+              { name: 'DEALS', path: '/deals' },
               { name: t('location'), path: '/location' },
               { name: t('faq'), path: '/faq' },
               { name: t('contact'), path: '/contact-us' }
@@ -264,6 +274,22 @@ const Navbar = () => {
                 </button>
               </li>
             ))}
+            <li style={{ position: 'relative' }}>
+              <button onClick={() => setBrandsOpen((o) => !o)} className="nav-link-item">
+                BRANDS {brandsOpen ? '▲' : '▼'}
+              </button>
+              {brandsOpen && (
+                <ul style={{ listStyle: 'none', position: 'absolute', top: '100%', left: 0, minWidth: '180px', backgroundColor: '#ffffff', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', padding: '8px 0', margin: '8px 0 0', zIndex: 1200, textAlign: 'left' }}>
+                  {NAV_BRANDS.map((b) => (
+                    <li key={b}>
+                      <button onClick={() => goBrand(b)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 18px', fontSize: '13px', fontWeight: '700', letterSpacing: '1px', color: '#222', textTransform: 'uppercase' }}>
+                        {b}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
           </ul>
 
           {isOpen && (
@@ -272,7 +298,8 @@ const Navbar = () => {
                 { name: t('home'), path: '/home' },
                 { name: 'SHOP', path: '/shop' },
                 { name: t('about'), path: '/about-us' },
-                { name: t('whyUs'), target: 'why-us' },
+                { name: t('whyUs'), path: '/why-us' },
+                { name: 'DEALS', path: '/deals' },
                 { name: t('location'), path: '/location' },
                 { name: t('faq'), path: '/faq' },
                 { name: t('contact'), path: '/contact-us' }
@@ -286,6 +313,14 @@ const Navbar = () => {
                   </button>
                 </li>
               ))}
+              <li style={{ borderTop: '1px solid #333', paddingTop: '12px' }}>
+                <span style={{ color: '#8b0b0b', fontSize: '13px', fontWeight: '800', letterSpacing: '1px' }}>BRANDS</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
+                  {NAV_BRANDS.map((b) => (
+                    <button key={b} onClick={() => goBrand(b)} style={{ background: '#222', border: '1px solid #444', color: '#fff', borderRadius: '20px', padding: '6px 14px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>{b}</button>
+                  ))}
+                </div>
+              </li>
             </ul>
           )}
         </nav>

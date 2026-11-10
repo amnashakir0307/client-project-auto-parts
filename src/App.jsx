@@ -1,17 +1,15 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Probnr2 from './Components/Probnr2';      // Import the new banner component
 import Navbar from './Components/Navbar';
 import Footer from './Components/Footer';
-import Deal from './Components/Deal';
 import Hero from './Components/Hero';
           import Admin from './Components/Admin';
 import About from './Components/About';
-import WH from './Components/WHY';
 import Order from './Components/Order';
 import FAQ from './Components/FAQ';
-import State from './Components/State';
+import State, { PromoBeforeFooter } from './Components/State';
 import Ai from './Components/Ai';
 import LCS from './Components/LCS';
 import Orderform from './Components/Orderform';
@@ -19,28 +17,24 @@ import Banner from './Components/Banner';
 import PromoBanner from './Components/PromoBanner'; // <--- نیا بینر یہاں امپورٹ کیا گیا ہے
 import LoadingPage from './Components/Loading';
 import Shop from './Components/Shop';
+import HomeShopSections, { ShopPreview, BestSellers } from './Components/HomeShopSections';
+import WH from './Components/WHY';
+import Deal from './Components/Deal';
+import { FaShieldAlt, FaCog, FaHeadset, FaStar } from 'react-icons/fa';
 
 const Home = () => {
+  const navigate = useNavigate();
   return (
     <div style={{ width: '100%', overflowX: 'hidden' }}>
       <div id="hero"><Hero /></div>
+
       <div id="state"><State /></div>
+      <ShopPreview />
 
-      <div id="why-us"><WH /></div>
-      {/* <div id="about"><About /></div> */}
-      {/* <div id="promo-banner"><PromoBanner /></div> */}
-      <div id="deal"><Deal /></div>
-
-      {/* نیا سٹائلش بینر یہاں رکھا گیا ہے */}
-      {/* <div id="promo-banner"><PromoBanner /></div> */}
-
-      {/* <div id="contact"><Order /></div> */}
-{/*
-      <div id="banner"><Banner /></div> */}
-      {/* <div id="faq"><FAQ /></div> */}
-      {/* <div id="banner"><Banner /></div> */}
-      {/* <div id="Probnr2"><Probnr2 /></div> */}
       <div id="ai"><Ai /></div>
+      <BestSellers />
+      <PromoBeforeFooter />
+
     </div>
   );
 };
@@ -55,6 +49,7 @@ const App = () => {
 
   return (
     <Router>
+      <style>{`footer { border-top: none !important; } footer hr { display: none !important; }`}</style>
       <div style={{
         display: 'flex',
         flexDirection: 'column',
@@ -136,6 +131,28 @@ const App = () => {
                 <>
                   <Navbar />
                   <Shop />
+                  <Footer />
+                </>
+              }
+            />
+
+            <Route
+              path="/why-us"
+              element={
+                <>
+                  <Navbar />
+                  <WH />
+                  <Footer />
+                </>
+              }
+            />
+
+            <Route
+              path="/deals"
+              element={
+                <>
+                  <Navbar />
+                  <Deal />
                   <Footer />
                 </>
               }

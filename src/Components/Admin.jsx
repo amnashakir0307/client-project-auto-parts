@@ -371,7 +371,7 @@ export default function Admin() {
     if (idx('name') < 0 || idx('part_number') < 0) { setMsg('CSV header is wrong. Download Template and use its exact columns: ' + BULK_HEADER); return; }
     const get = (c, name) => (idx(name) >= 0 ? (c[idx(name)] || '').trim() : '');
     const validBrands = ['Isuzu', 'Mitsubishi', 'Changan', 'MG', 'Hyundai'];
-    const validCats = ['Engine', 'Brake', 'Light', 'Filter', 'Suspension'];
+    const validCats = ['Engine', 'Brake', 'Wiper', 'Light', 'Filter', 'Suspension', 'Exhaust', 'Battery', 'Wheels', 'Clutch', 'Steering', 'Cooling'];
     const validQual = ['Genuine', 'OEM', 'China', 'Kabli'];
     const rows = []; const failed = [];
     lines.slice(1).forEach((line, i) => {
@@ -682,7 +682,7 @@ export default function Admin() {
                   <input data-field="model" placeholder="Model — D-Max / L200 / Pajero / MG5" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} style={{ ...inputStyle, border: formErrors.model ? '2px solid red' : '1px solid #ddd' }} />
                   {formErrors.model && <p style={{ color: 'red', fontSize: 12, marginTop: -4 }}>{formErrors.model}</p>}
                   <input placeholder="Year — 2019 / 2020" type="number" inputMode="numeric" value={form.vehicle_year} onChange={numField('vehicle_year', false)} style={inputStyle} />
-                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} style={inputStyle}>{['Engine', 'Brake', 'Light', 'Filter', 'Suspension'].map((c) => <option key={c}>{c}</option>)}</select>
+                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} style={inputStyle}>{['Engine', 'Brake', 'Wiper', 'Light', 'Filter', 'Suspension', 'Exhaust', 'Battery', 'Wheels', 'Clutch', 'Steering', 'Cooling'].map((c) => <option key={c}>{c}</option>)}</select>
                   <select value={form.quality} onChange={(e) => setForm({ ...form, quality: e.target.value })} style={inputStyle}>{['Genuine', 'OEM', 'China', 'Kabli'].map((c) => <option key={c}>{c}</option>)}</select>
                   <input data-field="price" placeholder="Price (Real Price) SAR *" type="number" inputMode="numeric" value={form.price} onChange={numField('price', true)} style={{ ...inputStyle, border: formErrors.price ? '2px solid red' : '1px solid #ddd' }} />
                   {formErrors.price && <p style={{ color: 'red', fontSize: 12, marginTop: -4 }}>{formErrors.price}</p>}
@@ -714,7 +714,7 @@ export default function Admin() {
                   <button onClick={() => { setSearch(''); setFilterCat(''); setFilterQuality(''); setFilterStock(''); }} style={btnLight}>Reset Filter</button>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                  <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd' }}><option value="">All Category</option>{['Engine', 'Brake', 'Light', 'Filter', 'Suspension'].map((c) => <option key={c}>{c}</option>)}</select>
+                  <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd' }}><option value="">All Category</option>{['Engine', 'Brake', 'Wiper', 'Light', 'Filter', 'Suspension', 'Exhaust', 'Battery', 'Wheels', 'Clutch', 'Steering', 'Cooling'].map((c) => <option key={c}>{c}</option>)}</select>
                   <select value={filterQuality} onChange={(e) => setFilterQuality(e.target.value)} style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd' }}><option value="">All Quality</option>{['Genuine', 'OEM', 'China', 'Kabli'].map((c) => <option key={c}>{c}</option>)}</select>
                   <select value={filterStock} onChange={(e) => setFilterStock(e.target.value)} style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd' }}><option value="">All Stock</option><option value="in">In Stock</option><option value="out">Out of Stock</option><option value="low">Low Stock</option></select>
                   <button type="button" onClick={downloadTemplate} style={btnLight}>Download Template</button>

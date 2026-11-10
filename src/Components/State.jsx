@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaShieldAlt, FaBoxes, FaSmile, FaCheckCircle } from 'react-icons/fa';
+import { FaShieldAlt, FaBoxes, FaSmile, FaCheckCircle, FaMedal, FaLock, FaStore, FaHeadset, FaCog, FaStar } from 'react-icons/fa';
 
 // Custom Hook for Animated Counter effect triggered on scroll/view
 function useCounter(target, duration = 3500) {
@@ -59,6 +59,25 @@ export default function Stats() {
 
   return (
     <div style={styles.section}>
+      {/* Black strip — Hero ke neeche, State ke top par */}
+      <div className="state-black-strip" style={styles.blackStrip}>
+        {[
+          { icon: <FaMedal />, title: 'PREMIUM QUALITY', desc: 'Built to Last' },
+          { icon: <FaCheckCircle />, title: '100% GENUINE PARTS', desc: 'Certified Authentic' },
+          { icon: <FaLock />, title: 'SECURE PAYMENT', desc: 'COD & Bank Transfer' },
+          { icon: <FaStore />, title: 'STORE PICKUP', desc: 'Visit Our Makkah Store' },
+          { icon: <FaHeadset />, title: 'EXPERT SUPPORT', desc: "We're Here to Help" },
+        ].map((f) => (
+          <div key={f.title} className="state-strip-item" style={styles.stripItem}>
+            <span className="state-strip-icon" style={styles.stripIcon}>{f.icon}</span>
+            <span>
+              <span className="state-strip-title" style={styles.stripTitle}>{f.title}</span>
+              <span className="state-strip-desc" style={styles.stripDesc}>{f.desc}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+
       <div style={styles.grid}>
         
         {/* Card 1 */}
@@ -112,8 +131,54 @@ export default function Stats() {
           border-color: #D32F2F !important;
           box-shadow: 0 10px 20px rgba(211, 47, 47, 0.12) !important;
         }
+        @media (max-width: 700px) {
+          .state-black-strip { grid-template-columns: repeat(2, 1fr) !important; padding: 16px 4% !important; gap: 14px 8px !important; }
+          .state-strip-item { flex-direction: column !important; align-items: center !important; text-align: center !important; gap: 6px !important; }
+          .state-strip-item:last-child { grid-column: 1 / -1 !important; }
+          .state-strip-icon { font-size: 24px !important; }
+          .state-strip-title { font-size: 12px !important; }
+          .state-strip-desc { font-size: 11px !important; }
+        }
       `}</style>
     </div>
+  );
+}
+
+// Promo section — Footer se pehle: 2 cards + features strip.
+// App.jsx me <PromoBeforeFooter /> ke zariye BestSellers ke baad lagta hai.
+export function PromoBeforeFooter() {
+  return (
+    <>
+{/* Promo section — Footer se pehle: 2 cards + features strip */}
+      <style>{`
+        @media (max-width: 700px) {
+          .app-promo-strip { grid-template-columns: repeat(2, 1fr) !important; padding: 18px 4% !important; gap: 14px 8px !important; }
+          .app-promo-item { flex-direction: column !important; align-items: center !important; text-align: center !important; gap: 6px !important; padding: 4px !important; }
+          .app-promo-icon { font-size: 24px !important; }
+          .app-promo-title { font-size: 12px !important; }
+          .app-promo-desc { font-size: 11px !important; }
+        }
+      `}</style>
+      <div style={{ width: '100%', backgroundColor: '#000000', padding: '20px 5%', boxSizing: 'border-box', fontFamily: "'Segoe UI', Tahoma, sans-serif" }}>
+        {/* Features strip */}
+        <div className="app-promo-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', width: '100%', maxWidth: '1200px', margin: '0 auto', padding: '20px 0', gap: '12px', boxSizing: 'border-box' }}>
+          {[
+            { icon: <FaShieldAlt />, title: 'FITMENT GUARANTEE', desc: 'Parts That Fit Your Vehicle' },
+            { icon: <FaCog />, title: 'THOUSANDS OF PRODUCTS', desc: 'Top Brands, One Destination' },
+            { icon: <FaHeadset />, title: 'DEDICATED SUPPORT', desc: 'Expert Advice & Help' },
+            { icon: <FaStar />, title: 'LOYALTY REWARDS', desc: 'Earn Points & Save More' },
+          ].map((f) => (
+            <div key={f.title} className="app-promo-item" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '6px 14px' }}>
+              <span className="app-promo-icon" style={{ fontSize: '30px', color: '#ffffff', flexShrink: 0, display: 'flex' }}>{f.icon}</span>
+              <span>
+                <span className="app-promo-title" style={{ display: 'block', fontSize: '13px', fontWeight: '800', letterSpacing: '0.5px', color: '#ffffff' }}>{f.title}</span>
+                <span className="app-promo-desc" style={{ display: 'block', fontSize: '12px', color: '#bbbbbb', marginTop: '2px' }}>{f.desc}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -123,9 +188,10 @@ const styles = {
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
-    padding: '60px 20px',
+    padding: '0 20px 60px',
     width: '100%',
     display: 'flex',
+    flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
     fontFamily: "'Outfit', sans-serif",
@@ -143,6 +209,43 @@ const styles = {
     borderRadius: '16px',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)',
     boxSizing: 'border-box',
+    marginTop: '20px',
+  },
+  blackStrip: {
+    backgroundColor: '#111111',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    padding: '16px 4%',
+    gap: '16px',
+    width: 'calc(100% + 40px)',
+    margin: '0 -20px',
+    borderRadius: '0',
+    boxSizing: 'border-box',
+  },
+  stripItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    justifyContent: 'center',
+  },
+  stripIcon: {
+    fontSize: '26px',
+    color: '#ffffff',
+    flexShrink: 0,
+    display: 'flex',
+  },
+  stripTitle: {
+    display: 'block',
+    fontSize: '12px',
+    fontWeight: '800',
+    letterSpacing: '0.5px',
+    color: '#ffffff',
+  },
+  stripDesc: {
+    display: 'block',
+    fontSize: '11px',
+    color: '#aaaaaa',
+    marginTop: '2px',
   },
   card: {
     backgroundColor: '#ffffff',

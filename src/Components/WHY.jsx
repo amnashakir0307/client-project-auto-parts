@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { FaCheckCircle, FaCarSide, FaSearch, FaTags } from 'react-icons/fa';
+import { FaShieldAlt, FaCog, FaHeadset, FaStar } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
 const WhyChooseUs = () => {
@@ -8,25 +8,25 @@ const WhyChooseUs = () => {
   const isRTL = i18n.language === 'ar';
 
   const features = [
-    { 
-      icon: <FaCheckCircle />, 
-      title: t('feature1Title'), 
-      desc: t('feature1Desc') 
+    {
+      icon: <FaShieldAlt />,
+      title: t('feature1Title', 'FITMENT GUARANTEE'),
+      desc: t('feature1Desc', 'Parts That Fit Your Vehicle')
     },
-    { 
-      icon: <FaCarSide />, 
-      title: t('feature2Title'), 
-      desc: t('feature2Desc') 
+    {
+      icon: <FaCog />,
+      title: t('feature2Title', 'THOUSANDS OF PRODUCTS'),
+      desc: t('feature2Desc', 'Top Brands, One Destination')
     },
-    { 
-      icon: <FaSearch />, 
-      title: t('feature3Title'), 
-      desc: t('feature3Desc') 
+    {
+      icon: <FaHeadset />,
+      title: t('feature3Title', 'DEDICATED SUPPORT'),
+      desc: t('feature3Desc', 'Expert Advice & Help')
     },
-    { 
-      icon: <FaTags />, 
-      title: t('feature4Title'), 
-      desc: t('feature4Desc') 
+    {
+      icon: <FaStar />,
+      title: t('feature4Title', 'LOYALTY REWARDS'),
+      desc: t('feature4Desc', 'Earn Points & Save More')
     }
   ];
 
